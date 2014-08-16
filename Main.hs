@@ -5,20 +5,18 @@ import Types
 import Reader
 import Eval 
 import Data.Map
-import Control.Monad.Error
 import Functions
+import Control.Exception
 
 main :: IO ()
-main = putStrLn $ showResults $ startEval (parseLisp "(+ 1 (+ 1 2))") (fromList [("+", Fn (stdFn lispAdd))])
+main = do
+  res <- (startEval (parseLisp "(+ 1 (+ 1 2))") (fromList [("+", Fn (stdFn lispAdd))]))
+  putStrLn res
+  
+startEval :: Either ParseError [Expression] -> Env -> IO (String) 
+startEval (Left err) _ = return (show err)
+startEval (Right (h:t)) env = do (exp, env) <- eval h env
+                                 return (show exp)
+                                 
+                              
 
-
-startEval :: Either ParseError [Expression] -> Env -> Either LispError String
-startEval (Left err) _ = Left (show err)
-startEval (Right (h:t)) env = catchError (do (r, e) <- eval h env
-                                             return (show r))
-                              (\err -> return (show err))
- 
-
-showResults :: Either LispError String -> String
-showResults (Left a) = "ERROR: " ++ a
-showResults (Right a) = a

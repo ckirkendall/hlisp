@@ -1,20 +1,24 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 module Types where
 
 import Data.Map
+import Control.Exception
+import Data.Typeable.Internal
 
-type LispError = String
+data LispError = CodeError String
+               | ApplicationError Expression String deriving (Show,Typeable)
+
+instance Exception LispError
 
 data Expression = SList Bool [Expression] --first arg is for quoted or not 
                 | Identifier String
                 | Number Integer
-                | Fn ([Expression] -> Env -> (Expression,Env))
-                | SError String
+                | Fn ([Expression] -> Env -> IO (Expression,Env))
 
 instance Show Expression where
   show (Identifier a) = a
   show (Number a) = show a
   show (Fn b) = "*FN*"
-  show (SError s) = s
   show (SList quoted a) = if quoted
                              then "'(" ++ (show a) ++ ")"
                              else "(" ++ (show a) ++ ")"     
