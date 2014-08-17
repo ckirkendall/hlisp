@@ -18,10 +18,13 @@ main = do
 
 code = "(def x 3) " ++
        "(def l '(1 2 3)) " ++
-       "(def map (fn (f c) " ++
-                    "(if c " ++
-                      "(cons (f (first c)) (map f (rest c))) " ++
-                      "c))) " ++
+       "(def do (fn (arg & args) (if args (do args) arg))) " ++ 
+       "(def defn (macro (id args & body) " ++
+                    "'(def ~id ~(cons 'fn (cons args body))))) " ++
+       "(defn map (f c) " ++
+         "(if c " ++
+           "(cons (f (first c)) (map f (rest c))) " ++
+           "c)) " ++
        "(def reduce (fn (f i c) " ++
                      "(if c " ++
                        "(reduce f (f i (first c)) (rest c)) " ++
@@ -35,6 +38,8 @@ initEnv :: Env
 initEnv = fromList [("+", Fn (stdFn lispAdd)),
                     ("let", Fn lispLet),
                     ("fn", Fn lispFn),
+                    ("macro", Fn lispMacro),
+                    ("eval", Fn lispEval),
                     ("def", Fn lispDef),
                     ("if", Fn lispIf),
                     ("cons", Fn lispCons),

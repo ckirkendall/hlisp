@@ -42,7 +42,8 @@ lispFn (h:t) _ = throwIO (CodeError "fn expects a list as first argument")
 
 
 lispDef :: [Expression] -> Env -> IO (Expression, Env)
-lispDef ((Identifier x):exp:[]) env = return (Unit, (insert x (LazyVar x exp) env))
+lispDef ((Identifier x):exp:[]) env =do
+  return (Unit, (insert x (LazyVar x exp) env))
 lispDef a _ = throwIO (CodeError ("invalid def form: def " ++ (show a)))
 
 
@@ -94,14 +95,14 @@ lispMacro :: [Expression] -> Env -> IO (Expression, Env)
 lispMacro ((SList args):body) env = return (Fn (\ params callEnv -> do 
                                                 fnEnv <- mergeMacroArgs args params env
                                                 (exp, fenv) <- evalBody body fnEnv
-                                                (res, _) <- eval exp callEnv
-                                                return (res,callEnv)), env)
+                                                (res, nenv) <- eval exp callEnv
+                                                return (res,nenv)), env)
 lispMacro (h:t) _ = throwIO (CodeError "macro expects a list as first argument")
 
 
 lispEval :: [Expression] -> Env -> IO (Expression, Env)
 lispEval (h:[]) env = eval h env
-lispEval _ _ = throwIO (CodeError "eval takes a single sexpression")
+lispEval _ _ = throwIO (CodeError "eval takes a single s-expression")
 
 -----------------------------------------
 -- HELPER FUNCTITONS
@@ -111,18 +112,21 @@ mergeMacroArgs :: [Expression] -> [Expression] -> Env -> IO Env
 mergeMacroArgs [] [] fnEnv = return fnEnv 
 mergeMacroArgs (h:t) [] _ = throwIO (CodeError ("missing parameters: "++(show h)))
 mergeMacroArgs [] (h:t) _ = throwIO (CodeError ("too many parameters passed: "++(show h)))
+mergeMacroArgs ((Identifier "&"):(Identifier h):[]) exps fnEnv = return (insert h (SList exps) fnEnv)
 mergeMacroArgs ((Identifier x):xs) (y:ys) fnEnv = mergeMacroArgs xs ys (insert x y fnEnv)
-
 
 
 mergeFnArgs :: [Expression] -> [Expression] -> Env -> Env -> IO Env
 mergeFnArgs [] [] callEnv fnEnv = return fnEnv 
 mergeFnArgs (h:t) [] _ _ = throwIO (CodeError ("missing parameters: "++(show h)))
 mergeFnArgs [] (h:t) _ _ = throwIO (CodeError ("too many parameters passed: "++(show h)))
---mergeFnArgs ((Identifier "&"):h[]) callEnv fnEnv =
+mergeFnArgs ((Identifier "&"):(Identifier h):[]) exps callEnv fnEnv = do
+  vargs <- evalVarArgs exps callEnv
+  return (insert h (SList vargs) fnEnv)
 mergeFnArgs ((Identifier x):xs) (y:ys) callEnv fnEnv = do
   (nexp, _) <- eval y callEnv
   mergeFnArgs xs ys callEnv (insert x nexp fnEnv)
+
 
 
 

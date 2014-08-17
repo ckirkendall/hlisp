@@ -15,7 +15,7 @@ remainingExpressions =
     <|> return []
 
 identifier :: GenParser Char st Expression
-identifier = fmap Identifier $ many1 $ oneOf "abcdefghijklmnopqrstuvwxyz_-+"
+identifier = fmap Identifier $ many1 $ oneOf "&abcdefghijklmnopqrstuvwxyz_-+"
 
 number :: GenParser Char st Expression
 number = fmap (Number . read) $ many1 $ oneOf "1234567890"

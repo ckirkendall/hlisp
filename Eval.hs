@@ -13,9 +13,11 @@ eval (Identifier x) env = isValidLookup (lookup x env) x env
 eval (Number x) env = return (Number x, env)
 eval (Fn f) env = return (Fn f, env)
 eval Unit env = return (Unit, env)
-eval (Quote exp) env = return (exp, env)
+eval (Quote exp) env = evalQuote exp env
 eval (SList (h:t)) env = callFn env h t
-
+eval (LazySeq head rest lenv) env = do
+  res <- (realize (LazySeq head rest lenv))
+  eval res env 
 
 evalBody :: [Expression] -> Env -> IO (Expression, Env)
 evalBody (h:[]) env = eval h env
@@ -23,6 +25,12 @@ evalBody (h:t) env = do
   (res,nenv) <- eval h env
   evalBody t nenv
 
+evalVarArgs :: [Expression] -> Env -> IO [Expression]
+evalVarArgs [] env = return []
+evalVarArgs (h:t) env = do
+  (res, nenv) <- eval h env
+  tres <- evalVarArgs t nenv
+  return (res:tres)   
 
 evalQuote :: Expression -> Env -> IO (Expression, Env)
 evalQuote (SList (h:t)) env = do
@@ -92,9 +100,11 @@ instance Show Expression where
   show (Identifier a) = a
   show (Number a) = show a
   show (Fn b) = "*FN*"
-  show (Unit) = ""
+  show (Unit) = "*unit*"
+  show (Boolean b) = (show b)
   show (Quote a) = "'" ++ (show a)
-  show (LazyVar i e) = show e
+  show (Unquote a) = "~" ++ (show a)
+  show (LazyVar i e) = "lazy("++(show e)++")"
   show (LazySeq a exp env) = "*LazySeq*"
   show (SList (h:t)) = "(" ++
                        show(h) ++
