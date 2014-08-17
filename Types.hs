@@ -6,22 +6,20 @@ import Control.Exception
 import Data.Typeable.Internal
 
 data LispError = CodeError String
-               | ApplicationError Expression String deriving (Show,Typeable)
+               | ApplicationError Expression String deriving (Typeable)
 
-instance Exception LispError
 
-data Expression = SList Bool [Expression] --first arg is for quoted or not 
+data Expression = SList [Expression] --first arg is for quoted or not 
+                | Quote Expression
+                | Unquote Expression
                 | Identifier String
                 | Number Integer
+                | Boolean Bool
+                | Unit
+                | LazyVar String Expression
+                | LazySeq Expression Expression Env  
                 | Fn ([Expression] -> Env -> IO (Expression,Env))
 
-instance Show Expression where
-  show (Identifier a) = a
-  show (Number a) = show a
-  show (Fn b) = "*FN*"
-  show (SList quoted a) = if quoted
-                             then "'(" ++ (show a) ++ ")"
-                             else "(" ++ (show a) ++ ")"     
 
 
 type Env = Map String Expression

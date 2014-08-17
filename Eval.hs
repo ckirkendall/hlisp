@@ -12,14 +12,37 @@ eval :: Expression -> Env ->  IO (Expression, Env)
 eval (Identifier x) env = isValidLookup (lookup x env) x env
 eval (Number x) env = return (Number x, env)
 eval (Fn f) env = return (Fn f, env)
-eval (SList quoted (h:t)) env = if quoted
-                                   then return (SList quoted (h:t), env)
-                                   else callFn env h t
-                                  
+eval Unit env = return (Unit, env)
+eval (Quote exp) env = return (exp, env)
+eval (SList (h:t)) env = callFn env h t
+
+
+evalBody :: [Expression] -> Env -> IO (Expression, Env)
+evalBody (h:[]) env = eval h env
+evalBody (h:t) env = do
+  (res,nenv) <- eval h env
+  evalBody t nenv
+
+
+evalQuote :: Expression -> Env -> IO (Expression, Env)
+evalQuote (SList (h:t)) env = do
+  (res, env) <- evalUnquote h env
+  ((SList tres), env) <- evalQuote (SList t) env
+  return ((SList (res:tres)),env)
+evalQuote exp env = return (exp, env)
+
+
+evalUnquote :: Expression -> Env -> IO (Expression, Env)
+evalUnquote (Unquote exp) env = eval exp env
+evalUnquote exp env = evalQuote exp env
 
 
 isValidLookup :: Maybe Expression -> String -> Env -> IO (Expression, Env)
-isValidLookup Nothing x env = throwIO (CodeError ("var lookup failed for: " ++ x))
+isValidLookup Nothing x env = do putStrLn (show env)
+                                 throwIO (CodeError ("var lookup failed for: " ++ x))
+isValidLookup (Just (LazyVar a exp)) _ env = do
+  (res, _) <- eval exp env
+  return (res, (insert a res env))
 isValidLookup (Just val) _ env = return (val, env)
 
 
@@ -28,8 +51,7 @@ callFn env ident t = do
   i <- isIdentifier ident
   (v, e) <- eval i env
   f <- isFn v
-  args <- evalFnArgs t env
-  (f args env)
+  (f t env)
 
 
 isFn :: Expression -> IO ([Expression] -> Env -> IO (Expression, Env))
@@ -48,4 +70,36 @@ evalFnArgs (h:t) env = do
   (arg, nenv) <- eval h env
   res <- evalFnArgs t nenv
   return (arg : res)
+
+
+realize :: Expression -> IO Expression
+realize (LazySeq a exp env) = do 
+   (res, _) <- (eval exp env)
+   t <- (realize res)
+   case t of
+     (SList b) -> return (SList (a:b))
+     _ -> throwIO (CodeError "invalid lazy sequence")
+realize (SList a) = return (SList a)
+realize exp = return exp
+
+instance Exception LispError
+
+instance Show LispError where
+  show (CodeError s) = ("Error: " ++ s)
+  show (ApplicationError exp str) = ("Error: " ++ (show exp) ++ "->" ++ str)
+
+instance Show Expression where
+  show (Identifier a) = a
+  show (Number a) = show a
+  show (Fn b) = "*FN*"
+  show (Unit) = ""
+  show (Quote a) = "'" ++ (show a)
+  show (LazyVar i e) = show e
+  show (LazySeq a exp env) = "*LazySeq*"
+  show (SList (h:t)) = "(" ++
+                       show(h) ++
+                       (Prelude.foldl (\ start exp -> (start ++ " " ++ show(exp))) "" t) ++ 
+                       ")"
+  show (SList []) = "()"
+                                 
 
