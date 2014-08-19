@@ -49,18 +49,20 @@ lispDef a _ = throwIO (CodeError ("invalid def form: def " ++ (show a)))
 
 lispIf :: [Expression] -> Env -> IO (Expression, Env)
 lispIf (t:a:b:[]) env  = do
-  res <- eval t env
+  (tmp, _) <- eval t env
+  res <- realizeThunks tmp env
   case res of
     (Boolean False, _) -> (eval b env)
     (Boolean True, _) -> (eval a env)
     (SList [],_) -> (eval b env)
-    (Unit,_) -> (eval b env)
-    (_,_) -> (eval a env)
+    (Unit,_) -> (evalBody [b] env)
+    (_,_) -> (evalBody [a] env)
 lispIf _ _ = throwIO (CodeError "invalid if syntax")
 
 lispCons :: [Expression] -> Env -> IO (Expression, Env) 
 lispCons (a:e:[]) env = do
   (res, _) <- eval a env
+  (res, _) <- realizeThunks res env
   return ((LazySeq res e env), env)
 lispCons a env = throwIO (CodeError ("cons expects an expression and a list:" ++ (show a)))
 
@@ -95,13 +97,16 @@ lispMacro :: [Expression] -> Env -> IO (Expression, Env)
 lispMacro ((SList args):body) env = return (Fn (\ params callEnv -> do 
                                                 fnEnv <- mergeMacroArgs args params env
                                                 (exp, fenv) <- evalBody body fnEnv
-                                                (res, nenv) <- eval exp callEnv
+                                                (texp, _) <- realizeThunks exp fnEnv
+                                                (res, nenv) <- eval texp callEnv
                                                 return (res,nenv)), env)
 lispMacro (h:t) _ = throwIO (CodeError "macro expects a list as first argument")
 
 
 lispEval :: [Expression] -> Env -> IO (Expression, Env)
-lispEval (h:[]) env = eval h env
+lispEval (h:[]) env = do
+  (res, _) <- eval h env
+  realizeThunks res env
 lispEval _ _ = throwIO (CodeError "eval takes a single s-expression")
 
 -----------------------------------------

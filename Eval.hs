@@ -17,10 +17,12 @@ eval (Quote exp) env = evalQuote exp env
 eval (SList (h:t)) env = callFn env h t
 eval (LazySeq head rest lenv) env = do
   res <- (realize (LazySeq head rest lenv))
-  eval res env 
+  eval res env
+eval (Thunk exp env) oenv = realizeThunks (Thunk exp env) oenv
+    
 
 evalBody :: [Expression] -> Env -> IO (Expression, Env)
-evalBody (h:[]) env = eval h env
+evalBody (h:[]) env = return ((Thunk h env), env)
 evalBody (h:t) env = do
   (res,nenv) <- eval h env
   evalBody t nenv
@@ -76,11 +78,23 @@ evalFnArgs :: [Expression] -> Env -> IO ([Expression])
 evalFnArgs [] env = return []
 evalFnArgs (h:t) env = do
   (arg, nenv) <- eval h env
-  res <- evalFnArgs t nenv
-  return (arg : res)
+  (targ,tenv) <- realizeThunks arg nenv
+  res <- evalFnArgs t tenv
+  return (targ : res)
 
+
+realizeThunks :: Expression -> Env -> IO (Expression, Env)
+realizeThunks (Thunk exp env) _ = do
+  (res, _) <- eval exp env
+  case res of 
+    (Thunk exp env) -> eval (Thunk exp env) env
+    exp -> return (exp,env)
+realizeThunks exp env = return (exp, env)
 
 realize :: Expression -> IO Expression
+realize (Thunk exp env) = do
+ (res, _) <- realizeThunks (Thunk exp env) env
+ realize res
 realize (LazySeq a exp env) = do 
    (res, _) <- (eval exp env)
    t <- (realize res)
@@ -106,6 +120,7 @@ instance Show Expression where
   show (Unquote a) = "~" ++ (show a)
   show (LazyVar i e) = "lazy("++(show e)++")"
   show (LazySeq a exp env) = "*LazySeq*"
+  show (Thunk e env) = "thunk("++(show e)++")"
   show (SList (h:t)) = "(" ++
                        show(h) ++
                        (Prelude.foldl (\ start exp -> (start ++ " " ++ show(exp))) "" t) ++ 

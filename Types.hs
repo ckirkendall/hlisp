@@ -17,7 +17,8 @@ data Expression = SList [Expression] --first arg is for quoted or not
                 | Boolean Bool
                 | Unit
                 | LazyVar String Expression
-                | LazySeq Expression Expression Env  
+                | LazySeq Expression Expression Env
+                | Thunk Expression Env
                 | Fn ([Expression] -> Env -> IO (Expression,Env))
 
 

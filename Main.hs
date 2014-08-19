@@ -25,17 +25,20 @@ code = "(def x 3) " ++
          "(if c " ++
            "(cons (f (first c)) (map f (rest c))) " ++
            "c)) " ++
-       "(def reduce (fn (f i c) " ++
-                     "(if c " ++
-                       "(reduce f (f i (first c)) (rest c)) " ++
-                       "i))) " ++
+       "(print map) " ++
+       "(defn reduce (f i c) " ++
+         "(if c " ++
+           "(reduce f (f i (first c)) (rest c)) " ++
+           "i)) " ++
        "(print (map (fn (x) (+ 1 x)) l)) " ++
        "(print (reduce (fn (x y) (+ x y)) 0 l)) " ++
        "(let (a (fn (d e) (+ d e))) (+ x (a 1 2)))" 
 
 
 initEnv :: Env
-initEnv = fromList [("+", Fn (stdFn lispAdd)),
+initEnv = fromList [("true", Boolean True),
+                    ("false", Boolean False),
+                    ("+", Fn (stdFn lispAdd)),
                     ("let", Fn lispLet),
                     ("fn", Fn lispFn),
                     ("macro", Fn lispMacro),
