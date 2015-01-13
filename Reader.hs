@@ -4,36 +4,37 @@ import Types
 import Text.ParserCombinators.Parsec
 import Data.Maybe 
 
-program :: GenParser Char st [Expression]
+program :: Parser [Expression]
 program =
     do first <- expression
        next <- remainingExpressions
        return (first : next)
-remainingExpressions :: GenParser Char st [Expression]
+       
+remainingExpressions :: Parser [Expression]
 remainingExpressions =
     (oneOf " ,\n" >> program)
     <|> return []
 
-identifier :: GenParser Char st Expression
+identifier :: Parser Expression
 identifier = fmap Identifier $ many1 $ oneOf "&abcdefghijklmnopqrstuvwxyz_-+"
 
-number :: GenParser Char st Expression
+number :: Parser Expression
 number = fmap (Number . read) $ many1 $ oneOf "1234567890"
 
-sexp :: GenParser Char st Expression
+sexp :: Parser Expression
 sexp = do
     char '('
     exp <- program
     char ')'
     return $ SList exp
 
-quote :: GenParser Char st Expression
+quote :: Parser Expression
 quote = do
   char '\''
   exp <- expression
   return $ Quote exp
 
-unquote :: GenParser Char st Expression
+unquote :: Parser Expression
 unquote = do
   char '~'
   exp <- expression
@@ -43,7 +44,7 @@ unquote = do
 
 --(+ 1 2 3)  (defn + [x & y 
  
-expression :: GenParser Char st Expression
+expression :: Parser Expression
 expression = quote
     <|> unquote
     <|> sexp 
